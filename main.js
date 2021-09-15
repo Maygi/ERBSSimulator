@@ -109,7 +109,7 @@ if (soundOn) {
 }
 var victory = new Audio("./sounds/victory.mp3");
 victory.loop = true;
-victory.volume = 0.5;
+victory.volume = 0.1;
 var bounceSound = new Audio("./sounds/bounce.wav");
 bounceSound.volume = 0.3;
 var chargedBurstSound = new Audio("./sounds/chargedburst.wav");
@@ -619,6 +619,8 @@ UI.prototype.draw = function (ctx) { //draw ui
         ctx.fillStyle = "white";
         ctx.textAlign = "center"; 
         ctx.fillText("Victory!",400 + this.game.liveCamera.x,250 + this.game.liveCamera.y);
+        ctx.font = "50px Calibri";
+		ctx.fillText("More content soonTM",400 + this.game.liveCamera.x,350 + this.game.liveCamera.y);
         ctx.globalAlpha = 1.0;        
     }
     if (this.game.currentPhase >= 6 && this.game.currentPhase <= 10 || this.game.currentPhase === 17) {
@@ -2397,6 +2399,7 @@ Character.prototype.update = function () {
 						var chat = new TextBox(this.game, "./img/Chat/HocoSquare.png", "...");
 						this.game.addEntity(chat);
 						this.game.currentPhase = 12;
+						this.game.gameWon = true; //temp!
 					break;
 				}
 			}
@@ -2970,7 +2973,8 @@ Boar.prototype.update = function() {
 				applyDamage(this.game.player1.x, this.game.player1.y, this.game, this.autoDamage, this.game.player1);
 				this.game.player1.hitByAttack = true;
                 this.game.player1.invulnTimer = this.game.player1.invulnTimerMax;
-                this.game.player1.xVelocity = -3;
+				if (this.phase === 3)
+					this.game.player1.xVelocity = -3;
 				playSound(hitSound);
 				if (this.game.player1.lastDirection == "Left") {
 					this.game.player1.hurtAnimation = this.game.player1.hurtAnimationLeft;
