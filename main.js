@@ -325,6 +325,17 @@ function onYBoundary(entity) {
 	return entity.y >= entity.game.liveCamera.y && entity.y - entity.hitBox.height <= entity.game.liveCamera.y + entity.game.liveCamera.height
 }
 
+function addScore(game, amount) {
+    if (mode === "easy") {
+		amount /= 2;
+	}
+	if (mode === "medium") {
+		amount *= 3 / 4;
+	}
+	game.score += Math.round(amount);
+	
+}
+
 function getDistance(x1, y1, x2, y2) {
 	var dx = x2 - x1;
 	var dy = y2 - y1;
@@ -589,6 +600,8 @@ UI.prototype.draw = function (ctx) { //draw ui
         ctx.fillStyle = "white";
         ctx.textAlign = "center"; 
         ctx.fillText("Defeat",400 + this.game.liveCamera.x,250 + this.game.liveCamera.y);
+        ctx.font = "30px Calibri";
+		ctx.fillText("Continue? Press [C] to be revived",400 + this.game.liveCamera.x,350 + this.game.liveCamera.y);
         ctx.globalAlpha = 1.0;
     } else if (this.game.currentBoss !== null && this.game.currentBoss.dead) {
         if (this.gameOverTransparency < 1) {
@@ -2165,9 +2178,9 @@ Powerup.prototype.update = function () {
 				this.game.addEntity(newParticle);
 			}
 	        if (checkCollision(this, this.game.player1)) {
-				this.gatherTime++;
 				if (this.gatherTime % 60 === 0)
 					playSound(treeSound); //gather sound
+				this.gatherTime++;
 				if (this.gatherTime >= 180) {
 					var damageParticle = new Particle(TEXT_PART, this.game.player1.hitBox.x - 50, this.game.player1.hitBox.y, 
 							0.2, -0.2, -3, -3, 0, 0.1, 0, 5, 10, 50, 1, 0, false, this.game);
@@ -2187,7 +2200,7 @@ Powerup.prototype.update = function () {
 			}
 		}
 		if (this.type === 8) { //landmine
-	        if (checkCollision(this, this.game.player1)) {
+	        if (checkCollision(this, this.game.player1) && this.game.player1.vulnerable) {
 				var newParticle = new Particle(PART_SECONDARY, this.x + 32, this.y + 32, 
 						-2, 2, -3, -5, -.5, 0.1, 0, 0, 0, 15, .2, .05, true, this.game);
 				element = new CircleElement(100, "#ed0000", "#cc0000");
@@ -2869,7 +2882,7 @@ Chicken.prototype.update = function() {
 	if (this.currentHealth <= 0) {
 		this.dead = true;
 	    this.removeFromWorld = true;
-		this.game.score += this.scoreValue;
+		addScore(this.game, this.scoreValue);
 	}
 }
 
@@ -2988,7 +3001,7 @@ Boar.prototype.update = function() {
 	if (this.currentHealth <= 0) {
 		this.dead = true;
 	    this.removeFromWorld = true;
-		this.game.score += this.scoreValue;
+		addScore(this.game, this.scoreValue);
 	}
 }
 
@@ -3060,6 +3073,8 @@ function Brandong(game, x, y) {
 }
 
 Brandong.prototype.update = function() {
+	if (this.game.player1.dead)
+		return;
     for (i = 0; i < this.cooldown.length; i++) {
         if (this.cooldown[i] > 0)
             this.cooldown[i]--;
@@ -3080,9 +3095,14 @@ Brandong.prototype.update = function() {
 		}
 	}
 	if (this.game.currentPhase === 5 || (this.game.currentPhase === 4 && this.game.player1.phaseTimer > 0)) {
-		this.x += 4.5;
+		if (mode === "easy") {
+			this.x += 4;
+		} else if (mode === "medium") {
+			this.x += 4.5;
+		} else {
+			this.x += 5.5;
+		}
 		this.state = "walking";
-		console.log("step: " + this.step + "; game phase: " + this.game.currentPhase);
 		if ((checkCollision(this, this.game.player1) || this.game.player1.x < this.x) && !this.game.player1.hitByAttack) {
 			if (this.game.player1.vulnerable && this.game.player1.invincTimer === 0) {
 				this.game.player1.vulnerable = false;
@@ -3149,7 +3169,13 @@ function BrandongBoss(game, x, y) {
     this.energy = 0; //denotes if an attack is charged
     this.idleTimerMax = 150;
     this.idleTimer = this.idleTimerMax;
-    this.maxHealth = 3500.0;
+	if (mode === "easy") {
+		this.maxHealth = 2000.0;
+	} else if (mode === "medium") {
+		this.maxHealth = 2800.0;
+	} else {
+		this.maxHealth = 3500.0;
+	}
 	this.scoreValue = 15000;
 	this.scoreValueMin = this.scoreValue / 3;
     this.currentHealth = this.maxHealth;
@@ -3163,6 +3189,8 @@ function BrandongBoss(game, x, y) {
     this.solid = false;
     this.attackable = true;
 	this.phaseTimer = 0;
+	this.phase = 1;
+	this.rapidCount = 0;
 	
 	
 	this.game = game;
@@ -3204,7 +3232,7 @@ BrandongBoss.prototype.update = function() {
 		}
 	}
 	if (this.currentHealth === 0 && this.game.currentPhase === 8) {
-		this.game.score += Math.max(this.scoreValueMin, this.scoreValue);
+		addScore(Math.max(this.scoreValueMin, this.scoreValue));
 		this.game.currentPhase = 9;
 		this.game.player1.destinationX = 15280;
 		this.game.player1.destinationY = 230;
@@ -3263,26 +3291,33 @@ BrandongBoss.prototype.update = function() {
 		}
 	} else if (this.game.currentPhase === 8) {
 		this.scoreValue--;
-		if (this.currentHealth < (0.67) * this.maxHealth)
+		if (this.currentHealth < (0.67) * this.maxHealth && (mode === "medium" || mode === "hard") && this.phase === 1) {
 			this.walkSpeed = 3.8;
-		if (this.currentHealth < (0.33) * this.maxHealth)
+			this.phase = 2;
+		} if (this.currentHealth < (0.33) * this.maxHealth && mode === "hard" && this.phase === 2) {
 			this.walkSpeed = 4.5;
+			this.phase = 3;
+			this.cooldown[2] = 10000;
+		}
 		if (this.idleTimer > 0) {
 			this.idleTimer--;
 			this.state = "idle";
 		} else if (this.energy !== 0) { //attack charged up
 			switch(this.energy) {
 				case 1: //whip wall
+					var minYSpeed = -20;
+					if (this.phase === 3)
+						minYSpeed = -18;
 					var particle = new Particle(BRANDONG_WHIP,
 							this.hitBox.x + this.hitBox.width / 2,
 							this.hitBox.y + this.hitBox.height / 2, 
-							-16, -16, -20, -12, 0, 0, 0, 1000, 0, 0, 0, 0, false, this.game);
+							-16, -16, minYSpeed, -12, 0, 0, 0, 1000, 0, 0, 0, 0, false, this.game);
 							
 					var element = new SquareElement(10 + Math.random() * 10, 10 + Math.random() * 10, "#cfc251", "#b0a64d");
 					particle.other = element;
-					if (this.currentHealth < (0.67) * this.maxHealth)
+					if (this.phase === 2)
 						particle.extra = 1;
-					if (this.currentHealth < (0.33) * this.maxHealth)
+					if (this.phase === 3)
 						particle.extra = 2;
 					this.game.addEntity(particle);
 					playSound(shootSound);
@@ -3291,9 +3326,9 @@ BrandongBoss.prototype.update = function() {
 				case 2: //whip line
 					playSound(lenoxWSound);
 					var amount = 3;
-					if (this.currentHealth < (0.67) * this.maxHealth)
+					if (this.phase === 2)
 						amount = 4;
-					if (this.currentHealth < (0.33) * this.maxHealth)
+					if (this.phase === 3)
 						amount = 5;
 					for (var i = 0; i < amount; i++) {
 						var particle = new Particle(BRANDONG_WHIP,
@@ -3308,7 +3343,13 @@ BrandongBoss.prototype.update = function() {
 				break;
 				case 3: //whip circle
 					playSound(lenoxQSound);
-					this.idleTimer = this.idleTimerMax;
+					if (this.rapidCount > 0) {
+						this.rapidCount--;
+						this.idleTimer = 50;
+						this.cooldown[3] = 0; //reset
+					} else {
+						this.idleTimer = this.idleTimerMax;
+					}
 					this.game.addEntity(new Particle(BRANDONG_SPIN, this.x - 75, this.y - 75, 0, 0, 0, 0, 0, 0, 0, 10, 0, 10, 0.5, 0, false, this.game,
 							new Animation(ASSET_MANAGER.getAsset("./img/Enemy/brandong_spin.png"), 0, 0, 300, 300, .02, 10, true, false, 0, 0)));
 				break;
@@ -3319,13 +3360,23 @@ BrandongBoss.prototype.update = function() {
 			this.destinationX = 15800;
 			this.destinationY = 200;
 			this.energy = 1;
+			this.rapidCount = 0;
+			this.cooldown[2] = 0;
 		} else if (this.cooldown[1] === 0) { //whip line
 			this.cooldown[1] = 500;
 			this.destinationX = Math.min(this.game.player1.x + 300, 15800);
 			this.destinationY = this.game.player1.y - 20;
 			this.energy = 2;
-		} else if (this.cooldown[2] === 0) {
-			this.cooldown[2] = 150;
+			this.rapidCount = 0;
+		} else if (this.cooldown[2] === 0 && this.phase === 3) { //rapid barrage of whips
+			this.cooldown[2] = 1200;
+			this.rapidCount = 3;
+			playSound(bounceSound);
+			this.destinationX = this.game.player1.x + 100;
+			this.destinationY = this.game.player1.y - 20;
+			this.energy = 3;
+		} else if (this.cooldown[3] === 0) {
+			this.cooldown[3] = 150;
 			this.destinationX = this.game.player1.x + 100;
 			this.destinationY = this.game.player1.y - 20;
 			this.energy = 3;

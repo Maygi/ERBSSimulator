@@ -103,12 +103,23 @@ GameEngine.prototype.startInput = function () {
 			that.player1.downDown = true;
 		} else if (String.fromCharCode(e.which) === 'Y') {
 			that.player1.attackInput = 1;
-		} else if (String.fromCharCode(e.which) === 'U') {
-			that.player1.attackInput = 2;
 		} else if (String.fromCharCode(e.which) === ' ') {
 			that.player1.attackInput = 1;
-            that.textSpeed = 3;
-        }/* else if (String.fromCharCode(e.which) === 'C') {
+            that.textSpeed = 1;
+        } else if (String.fromCharCode(e.which) === 'C') {
+			if (that.player1.dead) { //revive
+				that.player1.dead = false;
+				that.player1.currentHealth = that.player1.maxHealth;
+				that.player1.vulnerable = false;
+				that.player1.invulnTimer = that.player1.invulnTimerMax * 2;
+				that.player1.hitByAttack = true;
+				that.player1.xVelocity = 0;
+				that.score = Math.round(that.score / 2);
+				if (that.currentPhase === 5) { //brandong chase
+					that.player1.speedTimer = 300;
+				}
+			}
+        }/* else if (String.fromCharCode(e.which) === 'X') {
 			that.player1.attackInput = 2;
         }
         if (String.fromCharCode(e.which) === 'O') {
@@ -188,8 +199,11 @@ GameEngine.prototype.cameraShake = function(amount, time) {
 }
 
 GameEngine.prototype.update = function () {
-	this.step++;
+	if (!this.player1.dead)
+		this.step++;
 	if (!this.cameraLock) {
+		if (this.scoreToSet > 0)
+			this.score = this.scoreToSet;
 		this.camera.x = this.player1.x - 200;
 		this.camera.y = this.player1.y;
 		//console.log("Updating camera coords to (" + this.camera.x+", "+this.camera.y+")");
