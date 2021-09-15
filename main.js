@@ -138,6 +138,7 @@ var speedgateSound = new Audio("./sounds/speedgate.mp3");
 var explodeSound = new Audio("./sounds/explode.mp3");
 var treeSound = new Audio("./sounds/tree.mp3");
 var alertSound = new Audio("./sounds/alert.mp3");
+var shootSound = new Audio("./sounds/shoot.wav");
 
 /**
     Useful methods
