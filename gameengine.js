@@ -1,3 +1,4 @@
+// This game shell was happily copied from Googler Seth Ladd's "Bad Aliens" game and his Google IO talk in 2011
 
 window.requestAnimFrame = (function () {
     return window.requestAnimationFrame ||
@@ -107,7 +108,7 @@ GameEngine.prototype.startInput = function () {
 		} else if (String.fromCharCode(e.which) === ' ') {
 			that.player1.attackInput = 1;
             that.textSpeed = 3;
-        } else if (String.fromCharCode(e.which) === 'C') {
+        }/* else if (String.fromCharCode(e.which) === 'C') {
 			that.player1.attackInput = 2;
         }
         if (String.fromCharCode(e.which) === 'O') {
@@ -120,7 +121,7 @@ GameEngine.prototype.startInput = function () {
 			that.player1.x = 7500;
 			that.player1.y = 250;
 			startMusic.pause();
-		}
+		}*/
         e.preventDefault();
     }, false);
     this.ctx.canvas.addEventListener("keyup", function (e) {
