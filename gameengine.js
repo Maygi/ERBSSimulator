@@ -38,6 +38,7 @@ function GameEngine() {
 }
 
 GameEngine.prototype.init = function (ctx) {
+	this.highPriority = 1000;
 	this.score = 0;
 	this.cameraShakeAmount = 0;
 	this.cameraShakeTime = 0;
@@ -60,6 +61,8 @@ GameEngine.prototype.init = function (ctx) {
     this.cameraLock = false;
     this.gameWon = false;
     this.cameraSpeed = 5;
+	this.cutTime = 0; // the time where the black cross-screen cut effect is in play
+	this.pauseTime = 0;
     this.camera = { //where the camera wants to be
     	x: -2400,
     	y: 0,
@@ -91,19 +94,19 @@ GameEngine.prototype.start = function () {
 GameEngine.prototype.startInput = function () {
     console.log("Starting input");
     var that = this;
-
-    this.ctx.canvas.addEventListener("keydown", function (e) {		
-		if (String.fromCharCode(e.which) === 'D') { 
+	
+    this.ctx.canvas.addEventListener("keydown", function (e) {
+		if (String.fromCharCode(e.which) === 'D' || String.fromCharCode(e.which) === '\'' ) { 
 			that.player1.rightDown = true;
-		} else if (String.fromCharCode(e.which) === 'A') {
+		} else if (String.fromCharCode(e.which) === 'A' || String.fromCharCode(e.which) === '%') {
 			that.player1.leftDown = true;
-		} else if (String.fromCharCode(e.which) === 'W') {
+		} else if (String.fromCharCode(e.which) === 'W' || String.fromCharCode(e.which) === '&') {
 			that.player1.jumpDown = true;
-		} else if (String.fromCharCode(e.which) === 'S') {
+		} else if (String.fromCharCode(e.which) === 'S' || String.fromCharCode(e.which) === '(') {
 			that.player1.downDown = true;
 		} else if (String.fromCharCode(e.which) === 'Y') {
 			that.player1.attackInput = 1;
-		} else if (String.fromCharCode(e.which) === ' ') {
+        } else if (String.fromCharCode(e.which) === ' ' || String.fromCharCode(e.which) === 'Z') {
 			that.player1.attackInput = 1;
             that.textSpeed = 1;
         } else if (String.fromCharCode(e.which) === 'C') {
@@ -119,11 +122,16 @@ GameEngine.prototype.startInput = function () {
 					that.player1.speedTimer = 300;
 				}
 			}
-        }/* else if (String.fromCharCode(e.which) === 'X') {
+        } else if (String.fromCharCode(e.which) === 'Q') {
 			that.player1.attackInput = 2;
+        } else if (String.fromCharCode(e.which) === 'X') {
+			if (that.player1.currentStamina >= 100) { //ulti
+				that.player1.currentStamina = 0;
+				cutEffect(that, "THE BORKENING", "./img/Particle/hoco_cut.png");
+			}
         }
         if (String.fromCharCode(e.which) === 'O') {
-			that.camera.x = 7300;
+			/*that.camera.x = 7300;
 			that.liveCamera.x = 7300;
 			that.camera.minX = 1100;
 			that.camera.maxX = 16200;
@@ -131,27 +139,47 @@ GameEngine.prototype.startInput = function () {
 			that.currentPhase = 5;
 			that.player1.x = 7500;
 			that.player1.y = 250;
+			startMusic.pause();*/
+			
+			that.camera.x = 15200;
+			that.liveCamera.x = 15200;
+			that.camera.minX = 15200;
+			that.camera.maxX = 30000;
+			that.cameraSpeed = 5;
+			that.currentPhase = 13;
+			//that.player1.x = 15400;
+			that.player1.x = 15300;
+			that.player1.y = 250;
+			
+			/*that.camera.x = 19800;
+			that.liveCamera.x = 19800;
+			that.camera.minX = 19800;
+			that.camera.maxX = 19800;
+			that.cameraSpeed = 5;
+			that.currentPhase = 14;
+			//that.player1.x = 15400;
+			that.player1.x = 19850;
+			that.player1.y = 250;*/
 			startMusic.pause();
-		}*/
+			part2Music.play();
+			spawnWave(gameEngine, 2);
+		}
         e.preventDefault();
     }, false);
     this.ctx.canvas.addEventListener("keyup", function (e) {
-        if (String.fromCharCode(e.which) === 'D') {
+		if (String.fromCharCode(e.which) === 'D' || String.fromCharCode(e.which) === '\'' ) { 
 			that.player1.rightDown = false;
-		}
-        if (String.fromCharCode(e.which) === 'A') {
+		} else if (String.fromCharCode(e.which) === 'A' || String.fromCharCode(e.which) === '%') {
 			that.player1.leftDown = false;
-		}
-        if (String.fromCharCode(e.which) === 'W') {
+		} else if (String.fromCharCode(e.which) === 'W' || String.fromCharCode(e.which) === '&') {
 			that.player1.jumpDown = false;
-		} 
-        if (String.fromCharCode(e.which) === 'S') {
+		} else if (String.fromCharCode(e.which) === 'S' || String.fromCharCode(e.which) === '(') {
 			that.player1.downDown = false;
 		}
         if (String.fromCharCode(e.which) === 'Y' || String.fromCharCode(e.which) === 'U') {
 			that.player1.attackInput = 0;
 		}
-        if (String.fromCharCode(e.which) === ' ') {
+        if (String.fromCharCode(e.which) === ' ' || String.fromCharCode(e.which) === 'Z') {
 			that.player1.attackInput = 0;
             that.textSpeed = 5;
         }
@@ -185,11 +213,31 @@ GameEngine.prototype.draw = function () {
     this.ctx.clearRect(0, 0, this.ctx.canvas.width, this.ctx.canvas.height);
     this.ctx.save();
     this.ctx.translate(-this.liveCamera.x, -this.liveCamera.y);
+	var highPriorityEntities = [];
+	var highPriorityEntities2 = [];
+	var highPriorityEntities3 = []; //over ui
     for (var i = 0; i < this.entities.length; i++) {
-		if (!this.entities[i].highPriority)
+		if (this.entities[i].highPriority > 0) {
+			if (this.entities[i].highPriority === 3)
+				highPriorityEntities3.push(i);
+			else if (this.entities[i].highPriority === 2)
+				highPriorityEntities2.push(i);
+			else
+				highPriorityEntities.push(i);
+		} else
 			this.entities[i].draw(this.ctx);
     }
-    this.UI.draw(this.ctx);
+    for (var i = 0; i < highPriorityEntities.length; i++) {
+		this.entities[highPriorityEntities[i]].draw(this.ctx);
+    }
+    for (var i = 0; i < highPriorityEntities2.length; i++) {
+		this.entities[highPriorityEntities2[i]].draw(this.ctx);
+    }
+	if (!this.player1.dead)
+		this.UI.draw(this.ctx);
+    for (var i = 0; i < highPriorityEntities3.length; i++) {
+		this.entities[highPriorityEntities3[i]].draw(this.ctx);
+    }
     this.ctx.restore();
 };
 
@@ -199,11 +247,21 @@ GameEngine.prototype.cameraShake = function(amount, time) {
 }
 
 GameEngine.prototype.update = function () {
-	if (!this.player1.dead)
-		this.step++;
+	if (!this.player1.dead) {
+		if (this.pauseTime > 0)
+			this.pauseTime--;
+		if (this.cutTime > 0) {
+			this.cutTime--;
+			handleCut(this);
+		} else if (this.pauseTime === 0) {
+			this.step++;
+		}
+	}
 	if (!this.cameraLock) {
-		if (this.scoreToSet > 0)
+		if (this.scoreToSet > 0) {
 			this.score = this.scoreToSet;
+			this.scoreToSet = 0;
+		}
 		this.camera.x = this.player1.x - 200;
 		this.camera.y = this.player1.y;
 		//console.log("Updating camera coords to (" + this.camera.x+", "+this.camera.y+")");
@@ -222,6 +280,9 @@ GameEngine.prototype.update = function () {
 		
 		if (this.currentPhase === 1) { //starting game phase: scroll to the right
             this.camera.x = -2400 + (this.step) * 2;
+		}
+		if (this.currentPhase === 13) { //starting game phase: scroll to the right
+            this.camera.x = 15200 + (this.step) * 2;
 		}
 	    if (this.liveCamera.x != this.camera.x) {
 	    	if (this.liveCamera.x < this.camera.x) {
@@ -263,7 +324,7 @@ GameEngine.prototype.update = function () {
     var entitiesCount = this.entities.length;
     for (var i = 0; i < entitiesCount; i++) {
         var entity = this.entities[i];
-        if (!entity.removeFromWorld) {
+        if (!entity.removeFromWorld && this.pauseTime === 0 || entity.highPriority > 0) {
             entity.update();
         }
     }

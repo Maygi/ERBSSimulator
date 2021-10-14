@@ -39,6 +39,8 @@ var BRANDONG_WHIP = 16;
 //attack ids for particles
 var BRANDONG_WHIPWALL = 7;
 var BRANDONG_WHIPLINE = 8;
+var AYA_SHOT = 9;
+var ALPHA_SHOT = 10;
 
 var gameStarted = false;
 var mode = "hard";
@@ -71,6 +73,9 @@ brandongMusic.volume = 0.1;
 var crisisMusic = new Audio("./sounds/bgm_crisis.mp3");
 crisisMusic.loop = true;
 crisisMusic.volume = 0.1;
+var part2Music = new Audio("./sounds/bgm_lilysegment.mp3");
+part2Music.loop = true;
+part2Music.volume = 0.1;
 
 var earthRumble = new Audio("./sounds/earth_rumble.wav");
 earthRumble.loop = true;
@@ -128,6 +133,8 @@ breakSound.volume = 0.3;
 
 var shotHitSound = new Audio("./sounds/shot_hit.wav");
 shotHitSound.volume = 0.1;
+var beep = new Audio("./sounds/beep.mp3");
+beep.volume = 0.05;
 var lenoxQSound = new Audio("./sounds/lenox_q.mp3");
 var lenoxWSound = new Audio("./sounds/lenox_w.mp3");
 var lenoxRSound = new Audio("./sounds/lenox_r.mp3");
@@ -139,6 +146,11 @@ var explodeSound = new Audio("./sounds/explode.mp3");
 var treeSound = new Audio("./sounds/tree.mp3");
 var alertSound = new Audio("./sounds/alert.mp3");
 var shootSound = new Audio("./sounds/shoot.wav");
+var ayaSound = new Audio("./sounds/bangbang.mp3");
+var cutSound = new Audio("./sounds/cuteffect.wav");
+var energyMaxSound = new Audio("./sounds/energymax.mp3");
+var energyUpSound = new Audio("./sounds/energyup.wav");
+energyUpSound.volume = 0.07;
 
 /**
     Useful methods
@@ -333,7 +345,45 @@ function addScore(game, amount) {
 		amount *= 3 / 4;
 	}
 	game.score += Math.round(amount);
-	
+}
+
+function energyBarFlash(game) {
+	var x = game.UI.staminaX;
+	var y = game.UI.staminaY;
+	var width = game.UI.staminaWidth;
+	var height = game.UI.staminaHeight;
+	var fullParticle = new Particle(PART_SECONDARY, x + 71, y + 4, 
+			0, 0, 0, 0, 0, 0, 0, 5, 0, 30, 1, 0, false, game);
+	fullElement = new SquareElement(width, height, "#d9fafc", "#d9fafc");
+	fullParticle.other = fullElement;
+	fullParticle.highPriority = 3;
+	game.addEntity(fullParticle);
+}
+
+
+function addEnergy(game, amount) {
+	//amount *= 10;
+	var x = game.UI.staminaX;
+	var y = game.UI.staminaY;
+	var width = game.UI.staminaWidth;
+	var height = game.UI.staminaHeight;
+	if (game.player1.currentStamina < game.player1.maxStamina) {
+		var oldStamina = game.player1.currentStamina;
+		game.player1.currentStamina += amount;
+		if (oldStamina <= game.player1.maxStamina && game.player1.currentStamina >= game.player1.maxStamina) {
+			playSound(energyMaxSound);
+			game.player1.currentStamina = game.player1.maxStamina;
+			for (var i = 0; i < 50; i++) {
+				var newParticle = new Particle(PART_SECONDARY, x + Math.random() * width, y + Math.random() * height, 
+						-2, 2, -2, 2, 0, 0.1, 0, 0, 0, 50, .75, .15, true, game);
+				element = new SquareElement(10 + Math.random() * 10, 10 + Math.random() * 10, "#a6f9ff", "#6ae2eb");
+				newParticle.other = element;
+				newParticle.highPriority = 3;
+				game.addEntity(newParticle);
+			}
+			energyBarFlash(game);
+		}
+	}
 }
 
 function getDistance(x1, y1, x2, y2) {
@@ -357,14 +407,14 @@ function playSound(audio) {
 }
 
 function applyDamage(x, y, game, damage, victim) {
-	var damageParticle = new Particle(TEXT_PART, x + victim.hitBoxDef.width / 2, y + victim.hitBoxDef.height / 2, 0.2, -0.2, -3, -3, 0, 0.1, 0, 5, 10, 50, 1, 0, false, game);
+	var damageParticle = new Particle(TEXT_PART, x + victim.hitBoxDef.width / 2 + victim.hitBoxDef.offsetX, y + victim.hitBoxDef.offsetY, 0.2, -0.2, -3, -3, 0, 0.1, 0, 5, 10, 50, 1, 0, false, game);
 	var color = "white";
 	if (victim.isPlayer) {
 		color = "red";
 	} else {
 		victim.hurtTimer = 5;
-		if (victim.maxHealth < 500)
-			game.addEntity(new Particle(IMG_PART, victim.x, victim.y, 0, 0, 0, 0, 0, 0, 0, 5, 0, 10, 0.5, 0, false, game, victim.currentAnimation));
+		if (victim.maxHealth < 80)
+			game.addEntity(new Particle(IMG_PART, x, y, 0, 0, 0, 0, 0, 0, 0, 5, 0, 10, 0.5, 0, false, game, victim.currentAnimation));
 	}
 	var damageText = new TextElement("", "Lucida Console", 25, color, "black");
 	victim.currentHealth -= damage;
@@ -530,13 +580,16 @@ function UI(game) {
 	
 	this.scoreX = this.portraitX;
 	this.scoreY = this.portraitY + this.portraitHeight + 20;
-	this.highPriority = true;
+	this.highPriority = 1;
+	this.ougiBar = new Animation(ASSET_MANAGER.getAsset("./img/UI/OugiBar.png"), 0, 0, 142, 9, .05, 44, true, false, 0, 0);
+	this.ougiBarActive = new Animation(ASSET_MANAGER.getAsset("./img/UI/OugiBarActive.png"), 0, 0, 142, 9, .05, 44, true, false, 0, 0);
     
 	Entity.call(this, game, 0, 0);
 }
 
 UI.prototype = new Entity();
 UI.prototype.constructor = UI;
+
 
 UI.prototype.update = function () {
     /*if (this.game.currentPhase === 0) {
@@ -553,13 +606,21 @@ UI.prototype.update = function () {
     updateBossResources(this.game.currentBoss, this);
 };
 
+
+
 UI.prototype.draw = function (ctx) { //draw ui
     ctx.drawImage(ASSET_MANAGER.getAsset("./img/UI/BarBack.png"), this.bar1X + this.game.liveCamera.x, this.bar1Y + this.game.liveCamera.y, this.bar1Width, this.bar1Height);
     ctx.drawImage(ASSET_MANAGER.getAsset("./img/UI/HealthBarLight.png"), this.healthX + this.game.liveCamera.x, this.healthY + this.game.liveCamera.y, this.healthWidth * (this.game.player1.currentHealthTemp / this.game.player1.maxHealth), this.healthHeight);
     ctx.drawImage(ASSET_MANAGER.getAsset("./img/UI/HealthBar.png"), this.healthX + this.game.liveCamera.x, this.healthY + this.game.liveCamera.y, this.healthWidth * (this.game.player1.currentHealth / this.game.player1.maxHealth), this.healthHeight);
     ctx.drawImage(ASSET_MANAGER.getAsset("./img/UI/BarBack.png"), this.bar2X + this.game.liveCamera.x, this.bar2Y + this.game.liveCamera.y, this.bar2Width, this.bar2Height);
+	
     ctx.drawImage(ASSET_MANAGER.getAsset("./img/UI/StaminaBarLight.png"), this.staminaX + this.game.liveCamera.x, this.staminaY + this.game.liveCamera.y, this.staminaWidth * (this.game.player1.currentStaminaTemp / this.game.player1.maxStamina), this.staminaHeight);
     ctx.drawImage(ASSET_MANAGER.getAsset("./img/UI/StaminaBar.png"), this.staminaX + this.game.liveCamera.x, this.staminaY + this.game.liveCamera.y, this.staminaWidth * (this.game.player1.currentStamina / this.game.player1.maxStamina), this.staminaHeight);
+	if (this.game.player1.ultiTimer > 0) {
+		this.ougiBarActive.drawFrame(this.game.clockTick, ctx, this.staminaX + this.game.liveCamera.x, this.staminaY + this.game.liveCamera.y, 1, 1);
+	} else if (this.game.player1.currentStamina >= this.game.player1.maxStamina) {
+		this.ougiBar.drawFrame(this.game.clockTick, ctx, this.staminaX + this.game.liveCamera.x, this.staminaY + this.game.liveCamera.y, 1, 1);
+	}
     ctx.drawImage(ASSET_MANAGER.getAsset("./img/Hoco/HocoPortrait.png"), this.portraitX + this.game.liveCamera.x, this.portraitY + this.game.liveCamera.y, this.portraitWidth, this.portraitHeight);
     var tempColor = ctx.fillStyle;
     ctx.font = "30px Calibri";
@@ -573,6 +634,13 @@ UI.prototype.draw = function (ctx) { //draw ui
         ctx.drawImage(ASSET_MANAGER.getAsset("./img/UI/HealthBar.png"), this.bossHealthX + this.game.liveCamera.x, this.bossHealthY + this.game.liveCamera.y, this.bossHealthWidth * (this.game.currentBoss.currentHealth / this.game.currentBoss.maxHealth), this.bossHealthHeight);
     	ctx.drawImage(ASSET_MANAGER.getAsset("./img/Enemy/brandong_portrait.png"), this.bossPortraitX + this.game.liveCamera.x, this.bossPortraitY + this.game.liveCamera.y, this.bossPortraitWidth, this.bossPortraitHeight);
         ctx.fillText("Brandong                        " + this.game.currentBoss.currentHealth + " / " + this.game.currentBoss.maxHealth, this.bossPortraitX + 80 + this.game.liveCamera.x, 45 + this.game.liveCamera.y);
+    }
+    if (this.game.currentPhase === 14) {
+        ctx.drawImage(ASSET_MANAGER.getAsset("./img/UI/BarBack.png"), this.bossBarX + this.game.liveCamera.x, this.bossBarY + this.game.liveCamera.y, this.bossBarWidth, this.bossBarHeight);
+        ctx.drawImage(ASSET_MANAGER.getAsset("./img/UI/HealthBarLight.png"), this.bossHealthX + this.game.liveCamera.x, this.bossHealthY + this.game.liveCamera.y, this.bossHealthWidth * (this.game.currentBoss.currentHealthTemp / this.game.currentBoss.maxHealth), this.bossHealthHeight);
+        ctx.drawImage(ASSET_MANAGER.getAsset("./img/UI/HealthBar.png"), this.bossHealthX + this.game.liveCamera.x, this.bossHealthY + this.game.liveCamera.y, this.bossHealthWidth * (this.game.currentBoss.currentHealth / this.game.currentBoss.maxHealth), this.bossHealthHeight);
+    	ctx.drawImage(ASSET_MANAGER.getAsset("./img/Enemy/alpha_portrait.png"), this.bossPortraitX + this.game.liveCamera.x, this.bossPortraitY + this.game.liveCamera.y, this.bossPortraitWidth, this.bossPortraitHeight);
+        ctx.fillText("Alpha                          " + this.game.currentBoss.currentHealth + " / " + this.game.currentBoss.maxHealth, this.bossPortraitX + 80 + this.game.liveCamera.x, 45 + this.game.liveCamera.y);
     }
     /*if (this.game.currentPhase === 2 || this.game.currentPhase === 14 || this.game.currentPhase === 21) {
         ctx.drawImage(ASSET_MANAGER.getAsset("./img/UI/BarBack.png"), this.bossBarX + this.game.liveCamera.x, this.bossBarY + this.game.liveCamera.y, this.bossBarWidth, this.bossBarHeight);
@@ -658,6 +726,7 @@ UI.prototype.draw = function (ctx) { //draw ui
         brandongMusic.volume = 0.1;
         bossMusic.volume = 0.1;
 		crisisMusic.volume = 0.1;
+		part2Music.volume = 0.1;
     } else {
         document.getElementById("image").src = "img/UI/MusicOff.png";
         startMusic.volume = 0;
@@ -666,6 +735,7 @@ UI.prototype.draw = function (ctx) { //draw ui
         brandongMusic.volume = 0;
         bossMusic.volume = 0;
 		crisisMusic.volume = 0;
+		part2Music.volume = 0;
         
     }
     Entity.prototype.draw.call(this);	
@@ -683,7 +753,7 @@ function easyMode() {
     gameEngine.player1.maxHealth = 200;
     gameEngine.player1.currentHealth = 200;
     gameEngine.player1.currentHealthTemp = 200;
-    gameEngine.player1.staminaRegen = 0.4;
+    gameEngine.player1.staminaRegen = 0; //0.4;
     gameEngine.player1.healthRegen = 0.06;
     
     var elem = document.getElementById("difficulty");
@@ -704,7 +774,7 @@ function mediumMode() {
     gameEngine.player1.maxHealth = 150;
     gameEngine.player1.currentHealth = 150;
     gameEngine.player1.currentHealthTemp = 150;
-    gameEngine.player1.staminaRegen = 0.3;
+    gameEngine.player1.staminaRegen = 0; //0.3;
     gameEngine.player1.healthRegen = 0.03;
     var elem = document.getElementById("difficulty");
     elem.parentNode.removeChild(elem);
@@ -774,10 +844,10 @@ function updateBossResources(entity, ui) {
 		if (entity.currentHealth < 0) {
 			entity.currentHealth = 0;
 		}
-		if (entity.currentHealthTemp > entity.currentHealth) {
-			entity.currentHealthTemp -= ui.barChangingSpeed;
+		if (entity.currentHealthTemp > entity.currentHealth && entity.game.player1.ultiTimer === 0) {
+			entity.currentHealthTemp -= ui.barChangingSpeed * 5;
 		}
-		if (Math.abs(entity.currentHealthTemp - entity.currentHealth) <= ui.barChangingSpeed) {
+		if (Math.abs(entity.currentHealthTemp - entity.currentHealth) <= ui.barChangingSpeed * 5) {
 			entity.currentHealthTemp = entity.currentHealth;
 		}
 		if (entity.currentHealth > entity.currentHealthTemp) {
@@ -1041,18 +1111,24 @@ function Bullet(game, x, y, vspeed, hspeed, type, specialId) {
 	this.type = type;
 	this.specialId = specialId || 0;
 	this.animation = null;
+	this.mode = 0;
+	this.haccel = 0;
+	this.vaccel = 0;
 	
     this.targetHit = []; // The targets you've currently hit with your attack
 	
     Entity.call(this, game, x, y);
-    if (type === 1) { //star bullet
+    if (type === 1 || type === 4) { //star bullet
     	this.animation = new Animation(ASSET_MANAGER.getAsset("./img/Particle/star_bullet.png"), 0, 0, 38, 38, 0.03, 20, true, false, 0, 0);
 		this.hitBoxDef = {
 			width: 32, height: 32, offsetX: 0, offsetY: 0, growthX: 0, growthY: 0
 		};
-    }
-	
-    if (type === 2) { //star bullet
+    } else if (type === 3) { //spiral bullet (ulti)
+    	this.animation = new Animation(ASSET_MANAGER.getAsset("./img/Particle/star_bullet_2.png"), 0, 0, 38, 38, 0.02, 30, true, false, 0, 0);
+		this.hitBoxDef = {
+			width: 32, height: 32, offsetX: 0, offsetY: 0, growthX: 0, growthY: 0
+		};
+    } else if (type === 2) { //petal torrent blast
     	//this.animation = new Animation(ASSET_MANAGER.getAsset("./img/Particle/star_bullet.png"), 0, 0, 38, 38, 0.03, 20, true, false, 0, 0);
 		
 		this.hitBoxDef = {
@@ -1069,8 +1145,41 @@ Bullet.prototype.update = function () {
 	var dissipate = false;
 	if (isOnScreen(this)) {
 	    drawHitBox(this);
+		if (this.type === 3) { //spiral bullet
+			if (this.step % 1 === 0) {
+				var newParticle = new Particle(PART_SECONDARY, this.x + this.hitBoxDef.width / 2, this.y + this.hitBoxDef.height / 2, 
+						-6, -4, -1, 1, 0, 0, 0, 15, 0, 15, .5, .2, true, this.game);
+				var element = new CircleElement(10 + Math.random() * 4, "#dbf6ff", "#abf9ff");
+				newParticle.other = element;
+				this.game.addEntity(newParticle);
+			}
+			if (this.vaccel === 0 && this.step <= 1) {
+				if (this.vspeed > 0) {
+					this.vaccel = -0.5;
+					this.mode = 2;
+				} else {
+					this.vaccel = 0.5;
+					this.mode = 1;
+				}
+			}
+			if (this.mode === 1 && this.vspeed >= 5) {
+				this.vaccel = -0.5;
+				this.mode = 2;
+			} else if (this.mode === 2 && this.vspeed <= -5){
+				this.vaccel = 0.5;
+				this.mode = 1;
+			}
+		}
+		this.hspeed += this.haccel;
+		this.vspeed += this.vaccel;
 		this.x += this.hspeed;
 		this.y += this.vspeed;
+		if (this.type === 4) { //quiver bullet
+			if (this.vspeed > 0)
+				this.vspeed -= 0.2;
+			if (this.vspeed < 0)
+				this.vspeed += 0.2;
+		}
 		this.game.entities.forEach(function(entity) {
 			if (readyToMove(entity) && entity.attackable && that.targetHit.indexOf(entity) === -1) {
 				if (checkCollision(that, entity)) {
@@ -1078,9 +1187,15 @@ Bullet.prototype.update = function () {
 					if (that.type === 1) { //star bullet
 						applyDamage(entity.x, entity.y, that.game, 5, entity);
 						dissipate = true;
+						addEnergy(that.game, 0.5);
 					} else if (that.type === 2) { //petal torrent
 						applyDamage(entity.x, entity.y, that.game, 50, entity);
 						playSound(airHitSound);
+						
+						addEnergy(that.game, Math.min(5, entity.maxHealth / 10));
+					} else if (that.type === 3) { //spiral bullet
+						applyDamage(entity.x, entity.y, that.game, 8, entity);
+						dissipate = true;
 					}
 				}
 			}
@@ -1107,6 +1222,11 @@ Bullet.prototype.update = function () {
 			this.game.addEntity(new Particle(IMG_PART, this.x, this.y, 0, 0, 0, 0, 0, 0, 0, 5, 0, 30, 1, 0, false, this.game,
 					new Animation(ASSET_MANAGER.getAsset("./img/Particle/white_ring.png"), 0, 0, 128, 128, 0.03, 10, true, false, 0, 0)));
             playSound(shotHitSound);			
+		} else if (this.type === 3) { //star bullet
+			this.game.addEntity(new Particle(IMG_PART, this.x, this.y, 0, 0, 0, 0, 0, 0, 0, 5, 0, 30, 1, 0, false, this.game,
+					new Animation(ASSET_MANAGER.getAsset("./img/Particle/white_ring.png"), 0, 0, 32, 32, 0.03, 10, true, false, 0, 0)));
+            playSound(beep);
+            playSound(shotHitSound);
 		}
 	}
     Entity.prototype.update.call(this);
@@ -1203,7 +1323,15 @@ TextBox.prototype.update = function() {
 			} else if (this.game.currentPhase === 11) { //brandong SPECIAL MOVE
 				this.game.currentBoss.energy = 101;
 			} else if (this.game.currentPhase === 12) { //next phase
-				//eeeshe
+				this.game.currentPhase = 13;
+				this.game.step = 0;
+				part2Music.play();
+				this.game.player1.canControl = true;
+				this.game.cameraLock = false;
+				this.game.cameraSpeed = 5;
+				this.game.camera.minX = 15200;
+				this.game.camera.maxX = 30000;
+				spawnWave(gameEngine, 2);
 			}
 			/*else if (this.game.currentPhase === 3) {
                 if (soundOn) {
@@ -1372,12 +1500,13 @@ CircleElement.prototype.draw = function(ctx, x, y, sizeScale) {
 
 // A text element which is attached to a particle.
 // If the particle.other is not null, the text is drawn instead of an image.
-function TextElement(text, font, size, color, shadowColor) {
+function TextElement(text, font, size, color, shadowColor, offset) {
 	this.text = text;
 	this.font = font;
 	this.size = size;
 	this.color = color;
 	this.shadowColor = shadowColor || null;
+	this.offset = offset || 4;
 }
 
 TextElement.prototype.draw = function(ctx, x, y, sizeScale) {
@@ -1388,7 +1517,7 @@ TextElement.prototype.draw = function(ctx, x, y, sizeScale) {
     ctx.font = trueFont;
     if (this.shadowColor !== null) {
 	    ctx.fillStyle = this.shadowColor;
-	    ctx.fillText(this.text, x + 4, y + 4);
+	    ctx.fillText(this.text, x + this.offset, y + this.offset);
     }
     ctx.fillStyle = this.color;
     ctx.fillText(this.text, x, y);
@@ -1425,6 +1554,11 @@ function Particle(particleId, x, y, minHSpeed, maxHSpeed, minVSpeed, maxVSpeed,
 	this.direction = "none";
 	this.canHit = true;
 	this.extra = 0;
+	this.textContent = null;
+	
+	this.targetX = null;
+	this.targetY = null;
+	this.targetSpeed = 0;
 	if (fadeIn > 0) {
 		this.alpha = 0;
 	} else {
@@ -1445,6 +1579,23 @@ Particle.prototype.constructor = Particle;
 Particle.prototype.update = function() {
 	if ((this.particleId === BRANDONG_WHIP || this.attackId === BRANDONG_WHIPLINE || this.attackId === BRANDONG_WHIPWALL) && this.game.currentPhase === 9)
 		this.removeFromWorld = true;
+	if (this.targetX !== null && this.targetY !== null && this.targetSpeed !== 0) { //assign a speed to chase the target
+		var dx = this.targetX - this.x;
+		var dy = this.targetY - this.y;
+		if (Math.abs(dx) > Math.abs(dy)) {
+			this.hSpeed = this.targetSpeed;
+			this.vSpeed = Math.abs(dy / dx) * this.targetSpeed;
+		} else {
+			this.vSpeed = this.targetSpeed;	
+			this.hSpeed = Math.abs(dx / dy) * this.targetSpeed;
+		}
+		this.hSpeed = dx > 0 ? this.hSpeed : -1 * this.hSpeed;
+		this.vSpeed = dy > 0 ? this.vSpeed : -1 * this.vSpeed;
+		this.targetX = null;
+		this.targetY = null;
+		this.targetSpeed = 0;
+		console.log("hspeed: " + this.hSpeed + "; vspeed: " + this.vSpeed);
+	}
 	if (this.particleId === IMG_PART) {
 		/*this.game.addEntity(new Particle(PART_SECONDARY, this.x + 20, this.y + 20, 3, -3, 3, 0,
 			0, 0, 0, 10, 10, 10, 1, 0, true, this.game,
@@ -1472,7 +1623,7 @@ Particle.prototype.update = function() {
 		    this.game.addEntity(newParticle);
 		}
 	}
-	if (this.attackId === 3 && this.life % 2 === 0) { //void storm attack
+	if (this.attackId === ALPHA_SHOT && this.life % 2 === 0) {
 	    var newParticle = new Particle(PART_SECONDARY, this.x, this.y, 
 				-2, 2, -2, 2, 0, 0.2, 0, 20, 0, 15, .5, .2, true, this.game);
 	    var element = new CircleElement(10 + Math.random() * 4, "#9321c4", "#722f8e");
@@ -1970,11 +2121,38 @@ Particle.prototype.update = function() {
 				playSound(hitSound);
 			}
 		}
+		if (this.attackId === AYA_SHOT) {
+			if (this.game.player1.vulnerable && this.game.player1.invincTimer === 0 && this.canHit) {
+				this.canHit = false;
+				this.game.player1.vulnerable = false;
+				applyDamage(this.game.player1.x, this.game.player1.y, this.game, 15, this.game.player1);
+				this.game.player1.invulnTimer = this.game.player1.invulnTimerMax;
+				this.game.player1.hitByAttack = true;
+				playSound(hitSound);
+			}
+		}
+		if (this.attackId === ALPHA_SHOT) {
+			if (this.game.player1.vulnerable && this.game.player1.invincTimer === 0 && this.canHit) {
+				this.canHit = false;
+				this.game.player1.vulnerable = false;
+				applyDamage(this.game.player1.x, this.game.player1.y, this.game, 20, this.game.player1);
+				this.game.currentBoss.scoreValue -= 200;
+				this.game.player1.invulnTimer = this.game.player1.invulnTimerMax;
+				this.game.player1.hitByAttack = true;
+				playSound(hitSound);
+			}
+		}
     }
     Entity.prototype.update.call(this);
 };
 
 Particle.prototype.draw = function (ctx) {
+	var drawX = this.x;
+	var drawY = this.y;
+	if (this.highPriority === 3) { //draw above ui - follow camera
+		drawX += this.game.liveCamera.x;
+		drawY += this.game.liveCamera.y;
+	}
 	if (this.grow) {
 		this.sizeScale = this.life / (this.maxLife + this.fadeOut);
 	} else if (this.shrink) {
@@ -1987,16 +2165,16 @@ Particle.prototype.draw = function (ctx) {
 	}
 	ctx.globalAlpha = this.alpha * this.maxAlpha;
 	if (this.particleId === VOID_LIGHTNING) {
-		this.other.drawFrame(this.game.clockTick, ctx, this.x + this.other.offsetX,
-				this.y + this.other.offsetY, this.sizeScale * this.absoluteSizeScale, this.sizeScale * this.absoluteSizeScale);
-		this.animation.drawFrame(this.game.clockTick, ctx, this.x + this.animation.offsetX,
-				this.y + this.animation.offsetY, this.sizeScale * this.absoluteSizeScale, this.sizeScale * this.absoluteSizeScale);
+		this.other.drawFrame(this.game.clockTick, ctx, drawX + this.other.offsetX,
+				drawY + this.other.offsetY, this.sizeScale * this.absoluteSizeScale, this.sizeScale * this.absoluteSizeScale);
+		this.animation.drawFrame(this.game.clockTick, ctx, drawX + this.animation.offsetX,
+				drawY + this.animation.offsetY, this.sizeScale * this.absoluteSizeScale, this.sizeScale * this.absoluteSizeScale);
 	} else if (this.other == null) {
 		if (this.animation !== null)
-			this.animation.drawFrame(this.game.clockTick, ctx, this.x + this.animation.offsetX,
-					this.y + this.animation.offsetY, this.sizeScale * this.absoluteSizeScale, this.sizeScale * this.absoluteSizeScale);
+			this.animation.drawFrame(this.game.clockTick, ctx, drawX + this.animation.offsetX,
+					drawY + this.animation.offsetY, this.sizeScale * this.absoluteSizeScale, this.sizeScale * this.absoluteSizeScale);
 	} else {
-		this.other.draw(ctx, this.x, this.y, this.sizeScale * this.absoluteSizeScale);
+		this.other.draw(ctx, drawX, drawY, this.sizeScale * this.absoluteSizeScale);
 	}
     Entity.prototype.draw.call(this);
 	ctx.globalAlpha = 1;
@@ -2044,6 +2222,18 @@ function Powerup(game, x, y, type, specialId) {
     	this.animation = new Animation(ASSET_MANAGER.getAsset("./img/Misc/speedgate.png"), 0, 0, 64, 500, 0.05, 3, true, false, 0, 0);
 		this.hitBoxDef = {
 			width: 130, height: 600, offsetX: 0, offsetY: 0, growthX: 0, growthY: 0
+		};
+    }
+    if (type === 11) { //radar
+    	this.animation = new Animation(ASSET_MANAGER.getAsset("./img/Powerup/radar.png"), 0, 0, 64, 64, 0.05, 10, true, false, 0, 0);
+    }
+    if (type === 12) { //tear of selene
+    	this.animation = new Animation(ASSET_MANAGER.getAsset("./img/Powerup/tearofselene.png"), 0, 0, 64, 64, 0.05, 10, true, false, 0, 0);
+    }
+    if (type === 13) { //mithril quiver
+    	this.animation = new Animation(ASSET_MANAGER.getAsset("./img/Powerup/mithril_quiver2.png"), 0, 0, 128, 128, 0.033, 84, true, false, 0, 0);
+		this.hitBoxDef = {
+			width: 64, height: 64, offsetX: 32, offsetY: 32, growthX: 0, growthY: 0
 		};
     }
 	
@@ -2245,6 +2435,45 @@ Powerup.prototype.update = function () {
 				this.game.currentPhase = 6;
 	        }
 		}
+		if (this.type === 11) { //radar
+	        if (checkCollision(this, this.game.player1)) {
+	            playSound(healSound);
+	            var damageParticle = new Particle(TEXT_PART, this.game.player1.hitBox.x, this.game.player1.hitBox.y, 
+	                    0.2, -0.2, -3, -3, 0, 0.1, 0, 5, 10, 50, 1, 0, false, this.game);
+	            var damageText = new TextElement("", "Lucida Console", 25, "#ffd43a", "black");
+	            damageText.text = "Attack Speed Up!";
+	            damageParticle.other = damageText;
+                this.game.addEntity(damageParticle);
+	            this.game.player1.telephotoTimer = 600;
+	            this.removeFromWorld = true;
+	        }
+		}
+		if (this.type === 12) { //tear of selene
+	        if (checkCollision(this, this.game.player1)) {
+	            playSound(energyUpSound);
+	            var damageParticle = new Particle(TEXT_PART, this.game.player1.hitBox.x, this.game.player1.hitBox.y, 
+	                    0.2, -0.2, -3, -3, 0, 0.1, 0, 5, 10, 50, 1, 0, false, this.game);
+	            var damageText = new TextElement("", "Lucida Console", 25, "#ffd43a", "black");
+	            damageText.text = "Energy Up!";
+	            damageParticle.other = damageText;
+                this.game.addEntity(damageParticle);
+	            addEnergy(this.game, 25);
+	            this.removeFromWorld = true;
+	        }
+		}
+		if (this.type === 13) { //mithril quiver
+	        if (checkCollision(this, this.game.player1)) {
+	            playSound(healSound);
+	            var damageParticle = new Particle(TEXT_PART, this.game.player1.hitBox.x, this.game.player1.hitBox.y, 
+	                    0.2, -0.2, -3, -3, 0, 0.1, 0, 5, 10, 50, 1, 0, false, this.game);
+	            var damageText = new TextElement("", "Lucida Console", 25, "#ffd43a", "black");
+	            damageText.text = "Weapons upgraded!";
+	            damageParticle.other = damageText;
+                this.game.addEntity(damageParticle);
+	            this.removeFromWorld = true;
+				this.game.currentPhase = 16;
+	        }
+		}
 	}
     Entity.prototype.update.call(this);
 };
@@ -2280,14 +2509,14 @@ function Character(game) {
     this.strongAttackCost = 20; // Stamina cost of strong attacks
     this.wCost = 30;
     this.eCost = 40;
-    this.staminaRegen = 0.2; // 0.2
+    this.staminaRegen = 0; // 0.2
     this.healthRegen = 0.0;
     this.maxHealth = 100.0;
     this.currentHealth = this.maxHealth;
     this.currentHealthTemp = this.currentHealth;
     this.maxStamina = 100.0;
-    this.currentStamina = this.maxStamina;
-    this.currentStaminaTemp = this.currentStamina;
+    this.currentStamina = 0;
+    this.currentStaminaTemp = 0;
     this.attackInput = 0; // Keyboard Input for Attack, 1 = Light, 2 = Strong
 	this.attackIndex = 0;
     this.lastComboIndex = 0; // The last combo index (AA, Q, etc)
@@ -2296,6 +2525,7 @@ function Character(game) {
     this.invulnTimerMax = 40;
     this.invulnTimer = 0;
 	this.speedTimer = 0;
+	this.ultiTimer = 0;
 	this.zoomTimer = 0;
 	this.telephotoTimer = 0;
 	this.petalTorrentHits = 0;
@@ -2328,6 +2558,7 @@ function Character(game) {
 	this.cooldown = 0;
 	this.isPlayer = true;
 	this.phaseTimer = 0;
+	this.alternate = 0;
     
     this.timesHit = 0;
     
@@ -2364,6 +2595,49 @@ Character.prototype.constructor = Character;
  */
 Character.prototype.canCancel = function() {
 	return (this.attacking && this.attackAnimation.elapsedTime >= 0.25);
+}
+
+function cutEffect(game, ultiName, imageName) {
+	playSound(cutSound);
+	game.cutTime = 50;
+	game.pauseTime = 100;
+	setTimeout(
+		function() {
+			var cutChar = new Particle(IMG_PART, game.liveCamera.x + game.liveCamera.width, game.liveCamera.y + 225 , -32, -32, 0, 0, 0, 0.5, 0, 60, 20, 20, 1, 0, false, game,
+				new Animation(ASSET_MANAGER.getAsset(imageName), 0, 0, 1350, 50, 1, 1, true, false, 0, 0));
+			cutChar.highPriority = 1;
+			game.addEntity(cutChar);
+		}, 100);
+	setTimeout(
+		function() {			
+			var textParticle = new Particle(TEXT_PART, game.liveCamera.x + game.liveCamera.width + 200, game.liveCamera.y + 350, 
+					-20, -20, 0, 0, 0, 0.5, 0, 40, 20, 20, 1, 0, false, game);
+			var textContent = new TextElement("", "Lucida Console", 50, "white");
+			textContent.offset = 2;
+			textContent.text = ultiName;
+			textParticle.other = textContent;
+			textParticle.highPriority = 2;
+			game.addEntity(textParticle);
+		}, 500);
+	if (imageName.includes("hoco")) {
+	setTimeout(
+		function() {			
+			game.player1.canControl = true;
+			game.player1.ultiTimer = 600;
+		}, 1500);
+	}
+}
+
+function handleCut(game) {
+	var cutLeft = new Particle(IMG_PART, game.liveCamera.x - 1600, game.liveCamera.y, 60, 60, 0, 0, 0, 0.1, 0, 150, 0, 0, 1, 0, false, game,
+		new Animation(ASSET_MANAGER.getAsset("./img/Particle/ulti_cut.png"), 0, 0, 1600, 225, 1, 1, true, false, 0, 0));
+	cutLeft.highPriority = 1;
+	var cutRight = new Particle(IMG_PART, game.liveCamera.x + game.liveCamera.width, game.liveCamera.y + game.liveCamera.height - 225, -60, -60, 0, 0, 0, 0.1, 0, 150, 0, 0, 1, 0, false, game,
+		new Animation(ASSET_MANAGER.getAsset("./img/Particle/ulti_cut.png"), 0, 0, 1600, 225, 1, 1, true, false, 0, 0));
+	cutRight.highPriority = 1;
+	game.addEntity(cutLeft);
+	game.addEntity(cutRight);
+	
 }
 
 Character.prototype.update = function () {
@@ -2412,7 +2686,7 @@ Character.prototype.update = function () {
 						var chat = new TextBox(this.game, "./img/Chat/HocoSquare.png", "...");
 						this.game.addEntity(chat);
 						this.game.currentPhase = 12;
-						this.game.gameWon = true; //temp!
+						//this.game.gameWon = true; //temp!
 					break;
 				}
 			}
@@ -2571,6 +2845,20 @@ Character.prototype.update = function () {
 					this.game.addEntity(new Particle(IMG_PART, this.x, this.y, 0, 0, 0, 0, 0, 0, 0, 10, 0, 10, 0.5, 0, false, this.game,
 							new Animation(ASSET_MANAGER.getAsset("./img/Hoco/hoco.png"), 0, 0, 64, 64, 1, 10, true, false, 0, 0)));
 			}
+			if (this.ultiTimer > 0) {
+				if (this.ultiTimer === 600) {
+					energyBarFlash(this.game);
+				}
+				if (this.canControl)
+					this.ultiTimer--;
+				if (this.ultiTimer % 2 == 0) {
+					var newParticle = new Particle(PART_SECONDARY, this.x + 10 + Math.random() * this.hitBoxDef.width, this.y + 10 + Math.random() * this.hitBoxDef.height, 
+							-2, 2, -2, 2, 0, 0.1, 0, 0, 0, 50, .3, .15, true, this.game);
+					element = new SquareElement(20 + Math.random() * 10, 20 + Math.random() * 10, "#a6f9ff", "#6ae2eb");
+					newParticle.other = element;
+					this.game.addEntity(newParticle);
+				}
+			}
 			if (this.speedTimer > 0) {
 				this.speedTimer--;
 				if (this.speedTimer % 8 == 0)
@@ -2637,12 +2925,22 @@ Character.prototype.update = function () {
 								playSound(laserSound);
 							} else {
 								this.cooldown = 10;
-								if (this.lastDirection === "Left") {
-									this.game.addEntity(new Bullet(this.game, this.x, this.y, 0, 20, 1, 0));
-									this.game.addEntity(new Bullet(this.game, this.x, this.y + 20, 0, 20, 1, 0));
+								if (this.ultiTimer > 0) { 
+									this.cooldown = 4;
+									if (this.alternate === 0) {
+										this.alternate = 1;
+										this.game.addEntity(new Bullet(this.game, this.x, this.y, -5, 22, 3, 0));
+									} else {
+										this.alternate = 0;
+										this.game.addEntity(new Bullet(this.game, this.x, this.y + 20, 5, 22, 3, 0));
+									}
 								} else {
 									this.game.addEntity(new Bullet(this.game, this.x, this.y, 0, 20, 1, 0));
 									this.game.addEntity(new Bullet(this.game, this.x, this.y + 20, 0, 20, 1, 0));
+								}
+								if (this.game.currentPhase >= 16) { //obtained mithril quiver
+									this.game.addEntity(new Bullet(this.game, this.x, this.y, -4, 18, 4, 0));
+									this.game.addEntity(new Bullet(this.game, this.x, this.y + 20, 4, 18, 4, 0));
 								}
 							}
                         }
@@ -3020,6 +3318,138 @@ Boar.prototype.draw = function (ctx) {
     Entity.prototype.draw.call(this);
 };
 
+function Aya(game, x, y) {
+	// Number Variables
+	this.game = game;
+	this.x = x;
+	this.y = y;
+	this.hspeed = 0;
+	this.vspeed = 0;
+	this.alpha = 1;
+	this.step = 0;
+    this.walkSpeed = 5;
+    this.autoDamage = 25;
+    this.spawnCount = 0;
+    this.spawnTimer = 0;
+    this.destinationX = -1;
+    this.attackIndex = 0;
+    this.attackCount = 0;
+    this.hurtTimer = 0;
+    this.energy = 0; //denotes if an attack is charged
+	this.scoreValue = 750;
+    this.idleTimerMax = 110;
+    this.idleTimer = this.idleTimerMax;
+    this.maxHealth = 120.0;
+    this.currentHealth = this.maxHealth;
+    this.currentHealthTemp = this.currentHealth;   
+    // String Variables
+    this.state = "idle";
+	this.lastDirection = "Left";    
+    // Boolean Variables
+    this.attackEnabled = false;
+    this.dead = false;
+    this.solid = false;
+    this.attackable = true;
+	this.activated = false;
+	this.hit = false;
+	this.phase = 1;
+	this.shootFrames = 0;
+
+    this.cooldown = [120];
+    
+    // Animations
+	this.idleLeft = new Animation(ASSET_MANAGER.getAsset("./img/Enemy/aya.png"), 0, 0, 192, 128, 1, 1, true, false, 0, 0);
+	this.shootAnimation = new Animation(ASSET_MANAGER.getAsset("./img/Enemy/aya_shoot.png"), 0, 0, 192, 128, 1, 1, true, false, 0, 0);
+    this.idleAnimation = this.idleLeft;
+    this.currentAnimation = this.idleLeft;
+    
+    this.hitBoxDef = {
+    	width: 90, height: 80, offsetX: 93, offsetY: 18, growthX: 0, growthY: 0
+    };
+    drawHitBox(this);
+}
+
+Aya.prototype.update = function() {
+	if (readyToMove(this) || this.activated) {
+		for (i = 0; i < this.cooldown.length; i++) {
+			if (this.cooldown[i] > 0)
+				this.cooldown[i]--;
+		}
+		if (this.step >= 90 && this.hspeed === 0) {
+			this.hspeed = 2;
+		} else if (this.step >= 450) {
+			this.hspeed = -4;
+		}
+		this.shootFrames--;
+		this.step++;
+		if (this.cooldown[0] === 0) { //bang bang
+			this.shootFrames = 10;
+			if (this.phase === 1) {
+				playSound(ayaSound);
+				this.cooldown[0] = 15; 
+				this.phase = 2;
+			} else {
+				this.cooldown[0] = 180; 
+				this.phase = 3;				
+			}
+			var bulletHSpeed = 0;
+			var bulletVSpeed = 0;
+			var newParticle = new Particle(PART_SECONDARY, this.x + 5, this.y + 70, 
+					bulletHSpeed, bulletHSpeed, bulletVSpeed, bulletVSpeed, 0, 0, 0, 0, 0, 120, .8, .1, false, this.game);
+			element = new CircleElement(8 + Math.random() * 3, "#ff4e21", "#ff7c2b");
+			newParticle.other = element;
+			newParticle.attackId = AYA_SHOT;
+			newParticle.targetX = this.game.player1.x + this.game.player1.hitBoxDef.width / 2;
+			newParticle.targetY = this.game.player1.y + this.game.player1.hitBoxDef.height / 2;
+			newParticle.targetSpeed = 14;
+			this.game.addEntity(newParticle);
+		} else if (this.cooldown[0] <= 150 && this.phase === 3) {
+			this.phase = 1;
+		}
+		this.x += this.hspeed;
+		this.y += this.vspeed;
+		this.activated = true;
+		if (checkCollision(this, this.game.player1) && !this.game.player1.hitByAttack) {
+			if (this.game.player1.vulnerable && this.game.player1.invincTimer === 0) {
+				this.game.player1.vulnerable = false;
+				applyDamage(this.game.player1.x, this.game.player1.y, this.game, this.autoDamage, this.game.player1);
+				this.game.player1.hitByAttack = true;
+                this.game.player1.invulnTimer = this.game.player1.invulnTimerMax;
+				playSound(hitSound);
+				if (this.game.player1.lastDirection == "Left") {
+					this.game.player1.hurtAnimation = this.game.player1.hurtAnimationLeft;
+				} else {
+					this.game.player1.hurtAnimation = this.game.player1.hurtAnimationRight;
+				}
+			}
+		}
+	}
+	
+	if (!isOnScreen(this) && this.activated) {
+		this.dead = true;
+	    this.removeFromWorld = true;
+	}
+	if (this.currentHealth <= 0) {
+		this.dead = true;
+	    this.removeFromWorld = true;
+		addScore(this.game, this.scoreValue);
+	}
+}
+
+Aya.prototype.draw = function (ctx) {
+    if (!this.dead) {
+		if (this.shootFrames > 0)
+			this.shootAnimation.drawFrame(this.game.clockTick, ctx, this.x + this.shootAnimation.offsetX, this.y + this.shootAnimation.offsetY);
+		else
+			this.idleAnimation.drawFrame(this.game.clockTick, ctx, this.x + this.idleAnimation.offsetX, this.y + this.idleAnimation.offsetY);
+	}
+    
+    drawHitBox(this, ctx);
+    
+    Entity.prototype.draw.call(this);
+};
+
+
 function Brandong(game, x, y) {
 	// Number Variables
 	this.alpha = 1;
@@ -3170,11 +3600,11 @@ function BrandongBoss(game, x, y) {
     this.idleTimerMax = 150;
     this.idleTimer = this.idleTimerMax;
 	if (mode === "easy") {
-		this.maxHealth = 2000.0;
+		this.maxHealth = 3000.0;
 	} else if (mode === "medium") {
-		this.maxHealth = 2800.0;
+		this.maxHealth = 4000.0;
 	} else {
-		this.maxHealth = 3500.0;
+		this.maxHealth = 5000.0;
 	}
 	this.scoreValue = 15000;
 	this.scoreValueMin = this.scoreValue / 3;
@@ -3232,7 +3662,7 @@ BrandongBoss.prototype.update = function() {
 		}
 	}
 	if (this.currentHealth === 0 && this.game.currentPhase === 8) {
-		addScore(Math.max(this.scoreValueMin, this.scoreValue));
+		addScore(this.game, Math.max(this.scoreValueMin, this.scoreValue));
 		this.game.currentPhase = 9;
 		this.game.player1.destinationX = 15280;
 		this.game.player1.destinationY = 230;
@@ -3246,16 +3676,21 @@ BrandongBoss.prototype.update = function() {
 		bossMusic.pause();
 	}
 	if (this.energy === 101) { //brandong SPECIAL MOVE!
-		var particle = new Particle(BRANDONG_WHIP,
-				this.hitBox.x + this.hitBox.width / 2,
-				this.hitBox.y + this.hitBox.height / 2, 
-				-8, -8, 0, 0, 0, 0, 0, 62, 0, 0, 0, 0, false, this.game);
-		var element = new SquareElement(15, 15, "#fff8b8", "#fff8b8");
-		crisisMusic.pause();
-		particle.other = element;
-		particle.extra = 100;
-		playSound(lenoxHookSound);
-		this.game.addEntity(particle);
+		cutEffect(this.game, "Blue Viper", "./img/Particle/brandong_cut.png");
+		var that = this;
+		setTimeout(
+			function() {
+				var particle = new Particle(BRANDONG_WHIP,
+						that.hitBox.x + that.hitBox.width / 2,
+						that.hitBox.y + that.hitBox.height / 2, 
+						-8, -8, 0, 0, 0, 0, 0, 62, 0, 0, 0, 0, false, that.game);
+				var element = new SquareElement(15, 15, "#fff8b8", "#fff8b8");
+				crisisMusic.pause();
+				particle.other = element;
+				particle.extra = 100;
+				playSound(lenoxHookSound);
+				that.game.addEntity(particle);
+			}, 1000);
 		this.energy = 0;
 	}
 	if (this.destinationX !== -1 || this.destinationY !== -1) {
@@ -3291,10 +3726,10 @@ BrandongBoss.prototype.update = function() {
 		}
 	} else if (this.game.currentPhase === 8) {
 		this.scoreValue--;
-		if (this.currentHealth < (0.67) * this.maxHealth && (mode === "medium" || mode === "hard") && this.phase === 1) {
+		if (this.currentHealth < (0.75) * this.maxHealth && (mode === "medium" || mode === "hard") && this.phase === 1) {
 			this.walkSpeed = 3.8;
 			this.phase = 2;
-		} if (this.currentHealth < (0.33) * this.maxHealth && mode === "hard" && this.phase === 2) {
+		} if (this.currentHealth < (0.5) * this.maxHealth && mode === "hard" && this.phase === 2) {
 			this.walkSpeed = 4.5;
 			this.phase = 3;
 			this.cooldown[2] = 10000;
@@ -3399,6 +3834,236 @@ BrandongBoss.prototype.draw = function (ctx) {
     
     Entity.prototype.draw.call(this);
 };
+
+function Alpha(game, x, y) {
+	// Number Variables
+	this.alpha = 1;
+	this.step = 0;
+    this.walkSpeed = 3;
+    this.autoDamage = 20;
+    this.meteorCount = 0;
+    this.spawnCount = 0;
+    this.spawnTimer = 0;
+    this.destinationX = -1;
+	this.destinationY = -1;
+    this.attackIndex = 0;
+    this.attackCount = 0;
+    this.hurtTimer = 0;
+    this.energy = 0; //denotes if an attack is charged
+    this.idleTimerMax = 150;
+    this.idleTimer = this.idleTimerMax;
+	if (mode === "easy") {
+		this.maxHealth = 1000.0;
+	} else if (mode === "medium") {
+		this.maxHealth = 1500.0;
+	} else {
+		this.maxHealth = 2000.0;
+	}
+	this.scoreValue = 7500;
+	this.scoreValueMin = this.scoreValue / 3;
+    this.currentHealth = this.maxHealth;
+    this.currentHealthTemp = this.currentHealth;   
+    // String Variables
+    this.state = "idle";
+	this.lastDirection = "Right";    
+    // Boolean Variables
+    this.attackEnabled = true;
+    this.dead = false;
+    this.solid = false;
+    this.attackable = true;
+	this.phaseTimer = 0;
+	this.phase = 1;
+	this.rapidCount = 0;
+	
+	
+	this.game = game;
+	this.x = x;
+	this.y = y;
+    
+    this.cooldown = [0, 0, 0, 0];
+    
+    // Animations
+	
+    this.idleAnimation = new Animation(ASSET_MANAGER.getAsset("./img/Enemy/alpha_idle.png"), 0, 0, 400, 273, 1, 1, true, false, 0, -0);
+	this.attackAnimation = new Animation(ASSET_MANAGER.getAsset("./img/Enemy/alpha_lunge.png"), 0, 0, 400, 273, 1, 1, true, false, 0, 0);
+	this.prepAnimation =  new Animation(ASSET_MANAGER.getAsset("./img/Enemy/alpha_prep.png"), 0, 0, 400, 273, 1, 1, true, false, 0, 0);
+	this.swingAnimation =  new Animation(ASSET_MANAGER.getAsset("./img/Enemy/alpha_swing.png"), 0, 0, 400, 273, 1, 1, true, false, 0, 0);
+	this.deadAnimation =  new Animation(ASSET_MANAGER.getAsset("./img/Enemy/alpha_dead.png"), 0, 0, 400, 273, .05, 15, false, false, 0, 0);
+    
+    this.hitBoxDef = {
+    	width: 80, height: 160, offsetX: 208, offsetY: 40, growthX: 0, growthY: 0
+    };
+    drawHitBox(this);
+}
+
+Alpha.prototype.update = function() {
+    for (i = 0; i < this.cooldown.length; i++) {
+        if (this.cooldown[i] > 0)
+            this.cooldown[i]--;
+    }
+	if (this.x + 300 < this.game.liveCamera.x + this.game.liveCamera.width && this.game.currentPhase === 13) { //alpha!
+		this.game.currentBoss = this;
+		this.game.currentPhase = 14;
+		this.game.cameraLock = false;
+		this.game.camera.minX = 19800;
+		this.game.camera.maxX = 19800;
+	}
+	if (this.currentHealth === 0 && this.game.currentPhase === 14) {
+		addScore(this.game, Math.max(this.scoreValueMin, this.scoreValue));
+		this.game.currentPhase = 15;
+		this.phaseTimer = 100;
+		this.attackable = false;
+	}
+	if (this.phaseTimer > 0) {
+		this.phaseTimer--;
+		var particle = new Particle(SHAPE_PART, this.x + this.hitBoxDef.offsetX + Math.random() * this.hitBoxDef.width,
+			this.y + this.hitBoxDef.offsetY + Math.random() * this.hitBoxDef.height, -2, 2, 0, -4, 0, 0.1, 0, 5, 0, 50, 0.5, 0.2, true, this.game);
+		var element;
+		element = new SquareElement(16 + Math.random() * 8, 16 + Math.random() * 8, "#ab58cc", "#ab58cc");
+		particle.other = element;
+		this.game.addEntity(particle);
+		if (this.phaseTimer === 0) {
+			this.game.addEntity(new Powerup(this.game, this.x + 120, this.game.liveCamera.height / 2 - 64, 13));
+			this.removeFromWorld = true;
+			for (var i = 0; i < 20; i++) {
+				var particle = new Particle(SHAPE_PART, this.x + 120 + 64 + Math.random() * 64, this.game.liveCamera.height / 2 + Math.random() * 64, -2, 2, 0, -4, 0, 0.1, 0, 5, 0, 50, 0.5, 0.2, true, this.game);
+				var element;
+				element = new SquareElement(20 + Math.random() * 5, 20 + Math.random() * 5, "#9e45d1", "#9e45d1");
+				particle.other = element;
+				this.game.addEntity(particle);
+			}
+		}
+	}
+	if (this.destinationX !== -1 || this.destinationY !== -1) {
+		if (this.destinationX !== -1) {
+			if (this.destinationX > this.x)
+				this.x = Math.min(this.destinationX, this.x + this.walkSpeed);
+			else
+				this.x = Math.max(this.destinationX, this.x - this.walkSpeed);
+			if (this.x === this.destinationX)
+				this.destinationX = -1;
+		}
+		if (this.destinationY !== -1) {
+			if (this.destinationY > this.y)
+				this.y = Math.min(this.destinationY, this.y + this.walkSpeed);
+			else
+				this.y = Math.max(this.destinationY, this.y - this.walkSpeed);
+			if (this.y === this.destinationY)
+				this.destinationY = -1;
+		}
+	} else if (this.game.currentPhase === 14) {
+		this.scoreValue--;
+		if (this.idleTimer > 0) {
+			this.idleTimer--;
+			if (this.idleTimer === 0 && this.energy === 0)
+				this.state = "idle";
+		} else if (this.energy !== 0) { //attack charged up
+			var bulletHSpeed = -10;
+			var bulletVSpeed = -15;
+			if (mode === "hard") {
+				this.idleTimer = 3;
+				bulletVSpeed += this.energy * bulletVSpeed / -10;
+			} else if (mode === "medium") {
+				this.idleTimer = 4;
+				bulletVSpeed += this.energy * bulletVSpeed / -7.5;
+			} else {
+				this.idleTimer = 5;
+				bulletVSpeed += this.energy * bulletVSpeed / -5;
+			}
+			var newParticle = new Particle(PART_SECONDARY, this.x + 145, this.y + 110, 
+					bulletHSpeed, bulletHSpeed, bulletVSpeed, bulletVSpeed, 0, 0, 0, 0, 0, 120, .8, .1, false, this.game);
+			element = new CircleElement(12, "#ab58cc", "#ab58cc");
+			newParticle.other = element;
+			newParticle.attackId = ALPHA_SHOT;
+			this.game.addEntity(newParticle);
+			this.energy--;
+			if (this.energy === 0)
+				this.state = "idle";
+			else
+				this.state = "swing";
+			playSound(shootSound);
+		} else if (this.cooldown[0] === 0) { //conal barrage
+			this.cooldown[0] = 600;
+			if (mode === "hard")
+				this.energy = 20;
+			else if (mode === "medium")
+				this.energy = 15;
+			else
+				this.energy = 10;
+			this.idleTimer = 90;
+			this.state = "prep";
+			this.destinationY = this.game.player1.y - 100;
+		} else if (this.cooldown[1] === 0) { //bullet
+			this.state = "attacking";
+			this.cooldown[1] = 60;
+			this.idleTimer = 30;
+			var bulletHSpeed = 0;
+			var bulletVSpeed = 0;
+			var newParticle = new Particle(PART_SECONDARY, this.x + 55, this.y + 124, 
+					bulletHSpeed, bulletHSpeed, bulletVSpeed, bulletVSpeed, 0, 0, 0, 0, 0, 120, .8, .1, false, this.game);
+			element = new CircleElement(12, "#ab58cc", "#ab58cc");
+			newParticle.other = element;
+			newParticle.attackId = ALPHA_SHOT;
+			newParticle.targetX = this.game.player1.x + this.game.player1.hitBoxDef.width / 2 + 6;
+			newParticle.targetY = this.game.player1.y + this.game.player1.hitBoxDef.height / 2 + 6;
+			if (mode === "hard")
+				newParticle.targetSpeed = 18;
+			else if (mode === "medium")
+				newParticle.targetSpeed = 15;
+			else
+				newParticle.targetSpeed = 13;
+			this.game.addEntity(newParticle);
+		} else if (this.cooldown[2] === 0 && this.destinationY === -1) { //walk to top or bottom
+			this.cooldown[2] = 240;
+			if (this.y > this.game.liveCamera.y + this.game.liveCamera.height / 2 - 50)
+				this.destinationY = this.game.liveCamera.y;
+			else
+				this.destinationY = this.game.liveCamera.y + 240;
+		}
+	}
+	if (checkCollision(this, this.game.player1) && !this.game.player1.hitByAttack) {
+		if (this.game.player1.vulnerable && this.game.player1.invincTimer === 0) {
+			this.game.player1.vulnerable = false;
+			applyDamage(this.game.player1.x, this.game.player1.y, this.game, this.autoDamage, this.game.player1);
+			this.game.player1.hitByAttack = true;
+			this.game.player1.invulnTimer = this.game.player1.invulnTimerMax;
+			this.game.player1.xVelocity = -3;
+			playSound(hitSound);
+			if (this.game.player1.lastDirection == "Left") {
+				this.game.player1.hurtAnimation = this.game.player1.hurtAnimationLeft;
+			} else {
+				this.game.player1.hurtAnimation = this.game.player1.hurtAnimationRight;
+			}
+		}
+	}
+}
+
+Alpha.prototype.draw = function (ctx) {
+	if (this.phaseTimer > 0)
+		this.deadAnimation.drawFrame(this.game.clockTick, ctx, this.x + this.deadAnimation.offsetX, this.y + this.deadAnimation.offsetY);
+	else {
+		if (!this.dead) {
+			if (this.state === "attacking") {
+				this.attackAnimation.drawFrame(this.game.clockTick, ctx, this.x + this.attackAnimation.offsetX, this.y + this.attackAnimation.offsetY);
+				this.currentAnimation = this.attackAnimation;
+			} else if (this.state === "prep") {
+				this.prepAnimation.drawFrame(this.game.clockTick, ctx, this.x + this.prepAnimation.offsetX, this.y + this.prepAnimation.offsetY);
+				this.currentAnimation = this.prepAnimation;
+			} else if (this.state === "swing") {
+				this.swingAnimation.drawFrame(this.game.clockTick, ctx, this.x + this.swingAnimation.offsetX, this.y + this.swingAnimation.offsetY);
+				this.currentAnimation = this.swingAnimation;
+			} else {
+				this.idleAnimation.drawFrame(this.game.clockTick, ctx, this.x + this.idleAnimation.offsetX, this.y + this.idleAnimation.offsetY);
+				this.currentAnimation = this.idleAnimation;
+			}
+		}
+	}
+    
+    drawHitBox(this, ctx);
+    
+    Entity.prototype.draw.call(this);
+};
+
 
 
 function spawnWave(game, number) {
@@ -3868,6 +4533,179 @@ new Powerup(game, 7736, 0, 10),
 
 			];
 		break;
+		case 2:
+			var powerups = [
+			];
+			var enemies = [new Chicken(game, 16880, 432, 0, 0, -0.10, -0.10, 0),
+
+new Chicken(game, 16928, 432, 0, 0, -0.10, -0.10, 0),
+
+new Chicken(game, 16976, 432, 0, 0, -0.10, -0.10, 0),
+
+new Chicken(game, 17024, 432, 0, 0, -0.10, -0.10, 0),
+
+new Chicken(game, 17072, 432, 0, 0, -0.10, -0.10, 0),
+
+new Chicken(game, 17456, 160, 0, 0, 0, 0, 1),
+
+new Chicken(game, 17504, 160, 0, 0, 0, 0, 1),
+
+new Chicken(game, 17552, 160, 0, 0, 0, 0, 1),
+
+new Chicken(game, 17600, 160, 0, 0, 0, 0, 1),
+
+new Chicken(game, 17648, 160, 0, 0, 0, 0, 1),
+
+new Chicken(game, 17696, 160, 0, 0, 0, 0, 1),
+
+new Chicken(game, 17984, 0, 0, 0, 0, 0, 0),
+
+new Chicken(game, 17952, 64, 0, 0, 0, 0, 0),
+
+new Chicken(game, 17984, 128, 0, 0, 0, 0, 0),
+
+new Chicken(game, 18672, 0, 0, 0, -0.10, 0.10, 0),
+
+new Chicken(game, 18736, 0, 0, 0, -0.10, 0.10, 0),
+
+new Chicken(game, 18800, 0, 0, 0, -0.10, 0.10, 0),
+
+new Chicken(game, 18864, 0, 0, 0, -0.10, 0.10, 0),
+
+new Chicken(game, 18928, 0, 0, 0, -0.10, 0.10, 0),
+
+new Chicken(game, 18672, 432, 0, 0, -0.10, -0.10, 0),
+
+new Chicken(game, 18736, 432, 0, 0, -0.10, -0.10, 0),
+
+new Chicken(game, 18800, 432, 0, 0, -0.10, -0.10, 0),
+
+new Chicken(game, 18864, 432, 0, 0, -0.10, -0.10, 0),
+
+new Chicken(game, 18928, 432, 0, 0, -0.10, -0.10, 0),
+
+new Chicken(game, 19104, 336, 0, 0, 0, 0, 0),
+
+new Chicken(game, 19104, 400, 0, 0, 0, 0, 0),
+
+new Chicken(game, 19104, 64, 0, 0, 0, 0, 0),
+
+new Chicken(game, 19104, 128, 0, 0, 0, 0, 0),
+
+new Chicken(game, 19904, 0, 0, 0, -0.10, 0.10, 0),
+
+new Chicken(game, 19968, 0, 0, 0, -0.10, 0.10, 0),
+
+new Chicken(game, 20032, 0, 0, 0, -0.10, 0.10, 0),
+
+new Chicken(game, 19840, 0, 0, 0, -0.10, 0.10, 0),
+
+new Chicken(game, 19776, 0, 0, 0, -0.10, 0.10, 0),
+
+new Boar(game, 16576, 352),
+
+new Boar(game, 16672, 304),
+
+new Boar(game, 17248, 16),
+
+new Boar(game, 17248, 80),
+
+new Boar(game, 17248, 144),
+
+new Boar(game, 17888, 0),
+
+new Boar(game, 17856, 64),
+
+new Boar(game, 17888, 128),
+
+new Boar(game, 18512, 384),
+
+new Boar(game, 18464, 432),
+
+new Boar(game, 18416, 384),
+
+new Boar(game, 19168, 32),
+
+new Boar(game, 19136, 96),
+
+new Boar(game, 19168, 160),
+
+new Boar(game, 19168, 304),
+
+new Boar(game, 19152, 368),
+
+new Boar(game, 19168, 432),
+
+new Boar(game, 19296, 240),
+
+new Boar(game, 19392, 240),
+
+new Boar(game, 19584, 240),
+
+new Boar(game, 19680, 240),
+
+new Powerup(game, 17376, 96, 6),
+
+new Powerup(game, 16144, 224, 0),
+
+new Powerup(game, 19632, 128, 0),
+
+new Powerup(game, 19008, 160, 8),
+
+new Powerup(game, 19008, 224, 8),
+
+new Powerup(game, 19008, 288, 8),
+
+new Powerup(game, 19008, 352, 8),
+
+new Powerup(game, 19008, 432, 8),
+
+new Powerup(game, 19472, 0, 8),
+
+new Powerup(game, 19472, 64, 8),
+
+new Powerup(game, 19472, 128, 8),
+
+new Powerup(game, 19472, 192, 8),
+
+new Powerup(game, 19472, 256, 8),
+
+new Powerup(game, 19472, 320, 8),
+
+new Powerup(game, 19536, 0, 8),
+
+new Powerup(game, 19536, 64, 8),
+
+new Powerup(game, 19536, 128, 8),
+
+new Powerup(game, 19536, 192, 8),
+
+new Powerup(game, 19536, 256, 8),
+
+new Powerup(game, 19536, 320, 8),
+
+new Powerup(game, 18464, 224, 9),
+
+new Aya(game, 16704, 96),
+
+new Aya(game, 17520, 352),
+
+new Aya(game, 18016, 32),
+
+new Aya(game, 18784, 256),
+
+new Aya(game, 19168, 144),
+
+new Aya(game, 19168, 416),
+
+new Alpha(game, 20304, 152),
+
+new Powerup(game, 18880, 336, 12),
+
+
+
+			];
+		break;
 	}
 	for (i = 0; i < enemies.length; i++) {
 		var v = enemies[i];
@@ -3901,7 +4739,11 @@ ASSET_MANAGER.queueDownload("./img/Particle/smoke.png");
 ASSET_MANAGER.queueDownload("./img/Particle/void_lightning.png");
 ASSET_MANAGER.queueDownload("./img/Particle/void_lightning_large.png");
 ASSET_MANAGER.queueDownload("./img/Particle/star_bullet.png");
+ASSET_MANAGER.queueDownload("./img/Particle/star_bullet_2.png");
 ASSET_MANAGER.queueDownload("./img/Particle/white_ring.png");
+ASSET_MANAGER.queueDownload("./img/Particle/ulti_cut.png");
+ASSET_MANAGER.queueDownload("./img/Particle/hoco_cut.png");
+ASSET_MANAGER.queueDownload("./img/Particle/brandong_cut.png");
 ASSET_MANAGER.queueDownload("./img/Hoco/HocoPortrait.png");
 
 ASSET_MANAGER.queueDownload("./img/Background.png");
@@ -3910,6 +4752,8 @@ ASSET_MANAGER.queueDownload("./img/Background3.png");
 ASSET_MANAGER.queueDownload("./img/ArrowGoUp.png");
 ASSET_MANAGER.queueDownload("./img/ArrowGoRight.png");
 ASSET_MANAGER.queueDownload("./img/UI/Bottom.png");
+ASSET_MANAGER.queueDownload("./img/UI/OugiBar.png");
+ASSET_MANAGER.queueDownload("./img/UI/OugiBarActive.png");
 ASSET_MANAGER.queueDownload("./img/UI/BarBack.png");
 ASSET_MANAGER.queueDownload("./img/UI/HealthBar.png");
 ASSET_MANAGER.queueDownload("./img/UI/HealthBarLight.png");
@@ -3918,7 +4762,6 @@ ASSET_MANAGER.queueDownload("./img/UI/StaminaBarLight.png");
 ASSET_MANAGER.queueDownload("./img/UI/Platform.png");
 ASSET_MANAGER.queueDownload("./img/UI/PlatformBouncy.png");
 ASSET_MANAGER.queueDownload("./img/UI/PlatformFire.png");
-ASSET_MANAGER.queueDownload("./img/Reksai/ScreamLeft.png");
 ASSET_MANAGER.queueDownload("./img/Chat/ChatSquare.png");
 ASSET_MANAGER.queueDownload("./img/Chat/MalzSquare.png");
 ASSET_MANAGER.queueDownload("./img/Chat/RivenSquare.png");
@@ -3941,15 +4784,25 @@ ASSET_MANAGER.queueDownload("./img/Enemy/brandongboss_idle_left.png");
 ASSET_MANAGER.queueDownload("./img/Enemy/brandongboss_walk_right.png");
 ASSET_MANAGER.queueDownload("./img/Enemy/brandongboss_walk_left.png");
 ASSET_MANAGER.queueDownload("./img/Enemy/brandong_portrait.png");
+ASSET_MANAGER.queueDownload("./img/Enemy/alpha_portrait.png");
+ASSET_MANAGER.queueDownload("./img/Enemy/alpha_dead.png");
+ASSET_MANAGER.queueDownload("./img/Enemy/alpha_idle.png");
+ASSET_MANAGER.queueDownload("./img/Enemy/alpha_swing.png");
+ASSET_MANAGER.queueDownload("./img/Enemy/alpha_prep.png");
+ASSET_MANAGER.queueDownload("./img/Enemy/alpha_lunge.png");
 ASSET_MANAGER.queueDownload("./img/Enemy/brandong_spin.png");
 ASSET_MANAGER.queueDownload("./img/Enemy/brandong_whip.png");
 ASSET_MANAGER.queueDownload("./img/Enemy/blue_viper.png");
+ASSET_MANAGER.queueDownload("./img/Enemy/aya.png");
+ASSET_MANAGER.queueDownload("./img/Enemy/aya_shoot.png");
 
 ASSET_MANAGER.queueDownload("./img/Powerup/hermes.png");
 ASSET_MANAGER.queueDownload("./img/Powerup/petaltorrent.png");
 ASSET_MANAGER.queueDownload("./img/Powerup/treeoflife.png");
 ASSET_MANAGER.queueDownload("./img/Powerup/mine.png");
 ASSET_MANAGER.queueDownload("./img/Powerup/telephoto.png");
+ASSET_MANAGER.queueDownload("./img/Powerup/tearofselene.png");
+ASSET_MANAGER.queueDownload("./img/Powerup/mithril_quiver2.png");
 ASSET_MANAGER.queueDownload("./img/UI/shuriken_small.png");
 ASSET_MANAGER.queueDownload("./img/UI/BrandongTracker.png");
 ASSET_MANAGER.queueDownload("./img/Misc/tree.png");
